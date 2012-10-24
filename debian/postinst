@@ -1,0 +1,36 @@
+#!/bin/sh
+
+set -e
+. /etc/default/webobjects
+
+case "$1" in
+    configure)
+	if update-webobjects --install --fast ; then
+		if ! getent group "$WEBOBJECTS_GROUP" >/dev/null 2>&1 ; then
+			addgroup --system "$WEBOBJECTS_GROUP" --quiet
+		fi
+		if ! id "$WEBOBJECTS_USER" ; then
+			adduser --system --home "$NEXT_ROOT/Local/Library/WebObjects/Configuration" \
+				--no-create-home --ingroup "$WEBOBJECTS_GROUP" \
+				--disabled-password --shell /bin/false \
+				"$WEBOBJECTS_USER"
+		fi
+		update-rc.d wotaskd defaults 92 08 >/dev/null
+		invoke-rc.d wotaskd start
+	else
+		true
+	fi
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+
+
+exit 0

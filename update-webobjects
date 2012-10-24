@@ -1,0 +1,364 @@
+#!/bin/sh
+
+# Copyright (C) 2006-2012 Bart Martens <bartm@knars.be>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+set -e
+
+return_0() {
+	return 0
+}
+
+trap "return_0" 0
+
+die_hard() {
+	echo "ERROR: $1" >&2
+	echo "More information might be available at:" >&2
+	echo "  http://wiki.debian.org/FlashPlayer" >&2
+	exit 1
+}
+
+[ `whoami` = "root" ] || die_hard "must be root"
+
+show_usage() {
+	echo "Usage:"
+	echo "  update-webobjects --install"
+	echo "  update-webobjects --uninstall"
+	echo "  update-webobjects --status"
+	echo "Additional options:"
+	echo "  --verbose"
+	echo "  --quiet"
+	exit 1
+}
+
+getopt_temp=`getopt -o iusfvq --long install,uninstall,status,fast,verbose,quiet -n 'update-webobjects' -- "$@"` || show_usage
+eval set -- "$getopt_temp" || show_usage
+
+ACTION=none
+fast=no
+verbose=no
+quiet=no
+wo_version=5.4.3
+
+while [ true ]
+do
+	case "$1" in
+		-i|--install)
+			ACTION="--install"
+			shift
+			;;
+		-u|--uninstall)
+			ACTION="--uninstall"
+			shift
+			;;
+		-s|--status)
+			ACTION="--status"
+			shift
+			;;
+		-f|--fast)
+			fast=yes
+			shift
+			;;
+		-v|--verbose)
+			verbose=yes
+			shift
+			;;
+		-q|--quiet)
+			quiet=yes
+			shift
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "Internal error!"
+			exit 1
+			;;
+	esac
+done
+
+[ "$ACTION" != "none" -a $# -eq 0 ] || show_usage
+[ "$quiet" != "yes" ] || verbose=no
+[ "$wo_version" == "5.4.3" ] || die_hard "version $wo_version not supported"
+
+[ "$verbose" != "yes" ] || echo "options : $getopt_temp"
+
+UNPACKDIR=`mktemp -d /tmp/webobjects.XXXXXXXXXX` || die_hard "mktemp failed"
+echo "$UNPACKDIR" | grep -q "^/tmp/webobjects\." || die_hard "paranoia"
+cd "$UNPACKDIR" || die_hard "cd failed"
+mkdir mnt || die_hard "creating mnt directory failed"
+
+[ "$verbose" != "yes" ] || echo "temporary directory: $UNPACKDIR"
+
+do_cleanup() {
+	[ "$verbose" != "yes" ] || echo "cleaning up temporary directory $UNPACKDIR ..."
+	cd /
+	echo "$UNPACKDIR" | grep -q "^/tmp/webobjects\." || die_hard "paranoia"
+	mountpoint -q "$UNPACKDIR/mnt" && umount "$UNPACKDIR/mnt"
+	rm -rf "$UNPACKDIR"
+}
+
+die_hard_with_a_cleanup() {
+	return_0
+	do_cleanup
+	die_hard "$1"
+}
+
+trap "die_hard_with_a_cleanup interrupted" INT
+
+fix_missing_symlink() {
+
+	LANG=C update-alternatives --display flash-mozilla.so > /dev/null 2>&1 \
+		|| return 0
+
+	LANG=C update-alternatives --display flash-mozilla.so \
+		| grep -q "link currently absent" \
+		|| return 0
+
+	[ "$verbose" != "yes" ] || echo "link currently absent, trying to fix"
+
+	update-alternatives --auto flash-mozilla.so > /dev/null 2>&1 || true
+}
+
+warning_about_alternatives() {
+
+	letswarn="no"
+	LANG=C update-alternatives --display flash-mozilla.so \
+	| grep "link currently points to /usr/lib/flashplugin-nonfree/libflashplayer.so" \
+	> /dev/null 2>&1 || \
+	cat <<-EOF
+
+		How to use predefined priorities to
+		automatically select one implementation of "flash"
+		between the multiple installed alternatives :
+
+		 	update-alternatives --auto flash-mozilla.so
+
+		How to manually select one implementation of "flash"
+		between the multiple installed alternatives :
+
+		 	update-alternatives --config flash-mozilla.so
+
+	EOF
+}
+
+cachedir=/var/cache/webobjects
+
+wgetquiet=' -q '
+wgetfast='-t 3 -T 15 '
+wgetalways=' -nd -P . '
+wgetprogress=' -v --progress=dot:default '
+
+get_installed_version() {
+	installed=`python -c "from plistlib import readPlist;pl=readPlist('$WO_ROOT/Library/Frameworks/JavaWebObjects.framework/Resources/version.plist');print(pl['CFBundleShortVersionString'])"`
+}
+
+case "$ACTION" in
+
+	--install)
+		[ "$verbose" != "yes" ] || echo "selected action = $ACTION"
+
+		get_installed_version
+		[ "$verbose" != "yes" ] || echo "installed version = $installed"
+
+		if [ "$installed" != "" -a "$wo_version" != "" -a "$installed" = "$wo_version" ]
+		then
+
+			[ "$verbose" != "yes" ] || echo "WebObjects version $wo_version is already installed"
+
+		else
+
+			cp /usr/lib/webobjects/webobjects543.sha512.txt checksums.txt
+			downloadfile=`head -n 1 < checksums.txt | cut -c 131-`
+
+			[ "$verbose" != "yes" ] || [ ! -f $cachedir/$downloadfile ] || echo "copying $cachedir/$downloadfile ..."
+			[ ! -f $cachedir/$downloadfile ] || cp -p $cachedir/$downloadfile .
+			[ "$verbose" != "yes" ] || [ ! -f $downloadfile ] || echo "verifying checksum $downloadfile ..."
+			[ ! -f $downloadfile ] || grep $downloadfile checksums.txt | sha512sum -c - > /dev/null 2>&1 || rm -f $downloadfile
+
+			downloaddir=`tail -n 1 < checksums.txt`
+			downloadurl=$downloaddir/$downloadfile
+
+			wgetoptions="$wgetalways $wgetprogress"
+			[ "$quiet" != "yes" ] || wgetoptions="$wgetquiet $wgetalways"
+			[ "$fast" != "yes" ] || wgetoptions="$wgetoptions $wgetfast"
+			wgetoptions="$wgetoptions -O $UNPACKDIR/$downloadfile" # to change wget's message "Saving to: ..."
+			[ "$verbose" != "yes" ] || echo "wgetoptions=$wgetoptions"
+
+			[ "$verbose" != "yes" ] || [ ! -f $downloadfile ] || echo "downloading $downloadurl ..."
+			[ -f $downloadfile ] || \
+			HOME=/root \
+			wget $wgetoptions $downloadurl \
+				|| die_hard_with_a_cleanup "wget failed to download $downloadurl"
+			[ "$verbose" != "yes" ] || echo "verifying checksum $downloadfile ..."
+			grep "\.dmg" checksums.txt | sha512sum -c - > /dev/null 2>&1 \
+				|| die_hard_with_a_cleanup "sha512sum rejected $downloadfile"
+			[ "$verbose" != "yes" ] || echo "unpacking $downloadfile ..."
+			LOOP=`losetup -o 33280 --sizelimit 166126592 -f --show $downloadfile 2>/dev/null` \
+				|| die_hard_with_a_cleanup "could not setup loop device"
+			mount -t hfsplus -o loop $LOOP mnt
+				|| die_hard_with_a_cleanup "could not mount image"
+			[ "$verbose" != "yes" ] || echo "verifying checksum contents of $downloadfile ..."
+			head -n 5 < checksums.txt | sha512sum -c - > /dev/null 2>&1 \
+				|| die_hard_with_a_cleanup "sha512sum rejected a part of $downloadfile"
+
+			[ "$verbose" != "yes" ] || echo "extracting runtime ..."
+			RUNTIME=`/usr/lib/webobjects/xarextract.py -x mnt/Packages/WebObjectsRuntime.pkg`
+			mv -f $RUNTIME .
+			RUNTIME="$PWD/`basename \"$RUNTIME\"`"
+
+			targetdir=/var/lib/webobjects
+
+			[ "$verbose" != "yes" ] || echo "moving webserver resources to $targetdir ..."
+			mv -f $RUNTIME/System/Library/WebObjects/WODocumentRoot/* $targetdir/htdocs
+			mv -f $RUNTIME/WebServer/Documents/WebObjects/* $targetdir/htdocs
+			rm -rf $RUNTIME/WebServer $RUNTIME/System/Library/WebObjects/WODocumentRoot
+			[ "$verbose" != "yes" ] || echo "moving local libraries to $targetdir ..."
+			mv -f $RUNTIME/Library $targetdir
+
+			targetdir=/usr/share/webobjects
+
+			[ "$verbose" != "yes" ] || echo "removing OSX adaptors ..."
+			rm -rf $RUNTIME/System/Library/WebObjects/Adaptors
+			[ "$verbose" != "yes" ] || echo "moving system libraries to $targetdir ..."
+			mv -f $RUNTIME/System/Library $targetdir
+
+			targetdir=/usr/share/doc/webobjects
+
+			[ "$verbose" != "yes" ] || echo "moving examples to $targetdir ..."
+			mv -f $RUNTIME/Developer/Examples $targetdir/examples
+
+			[ "$verbose" != "yes" ] || ( get_installed_version && echo "WebObjects version: $installed" )
+
+			[ "$verbose" != "yes" ] || echo "moving $downloadfile to $cachedir ..."
+			mv -f $downloadfile $cachedir
+
+			#fix_missing_symlink || true
+
+			#[ "$verbose" != "yes" ] || \
+			#update-alternatives --display flash-mozilla.so || true
+
+			#[ "$verbose" != "yes" ] || echo "calling update-alternatives ..."
+			#update-alternatives --quiet --install \
+			#	/usr/lib/mozilla/plugins/flash-mozilla.so flash-mozilla.so \
+			#	/usr/lib/flashplugin-nonfree/libflashplayer.so 50 \
+			#	|| die_hard_with_a_cleanup "update-alternatives failed to install flash-mozilla.so"
+
+			#[ "$verbose" != "yes" ] || \
+			#update-alternatives --display flash-mozilla.so || true
+
+			#[ "$quiet" != "no" ] || \
+			#warning_about_alternatives
+
+			#for sourcefile in \
+			#	usr/bin/flash-player-properties \
+			#	usr/share/applications/flash-player-properties.desktop \
+			#	usr/share/icons/hicolor/16x16/apps/flash-player-properties.png \
+			#	usr/share/icons/hicolor/22x22/apps/flash-player-properties.png \
+			#	usr/share/icons/hicolor/24x24/apps/flash-player-properties.png \
+			#	usr/share/icons/hicolor/32x32/apps/flash-player-properties.png \
+			#	usr/share/icons/hicolor/48x48/apps/flash-player-properties.png \
+			#	usr/share/pixmaps/flash-player-properties.png \
+			#	;
+			#do
+			#	if [ ! -e $sourcefile ]
+			#	then
+			#		echo "not found in tarball: $sourcefile"
+			#	else
+			#		targetfile="/$sourcefile"
+
+			#		if [ -e $targetfile ]
+			#		then
+			#			echo "already exists: $targetfile"
+			#		else
+			#			[ "$verbose" != "yes" ] || echo "installing $targetfile"
+
+			#			md5sum $sourcefile >> /var/lib/flashplugin-nonfree/extrafiles.md5sums
+			#			cp $sourcefile $targetfile
+			#			chown root:root $targetfile
+			#			chmod g-w $targetfile
+			#		fi
+			#	fi
+			#done
+		fi # end if installed != upstream
+
+		[ "$verbose" != "yes" ] || echo "end of action $ACTION"
+
+		;;
+
+	--uninstall)
+		[ "$verbose" != "yes" ] || echo "selected action = $ACTION"
+
+		[ "$verbose" != "yes" ] || echo "removing files ..."
+		rm -rf /usr/share/webobjects/Library
+		rm -rf /usr/share/doc/webobjects/examples
+
+		[ -e /var/lib/webobjects/extrafiles.md5sums ] || touch /var/lib/webobjects/extrafiles.md5sums
+
+		while read line
+		do
+			sourcefile=`echo $line|cut -d ' ' -f 2`
+			targetfile="/$sourcefile"
+
+			if [ ! -e $targetfile ]
+			then
+				echo "not found: $targetfile"
+			else
+				cd /
+				calculated=`md5sum $sourcefile`
+				cd - > /dev/null
+
+				if [ "$line" != "$calculated" ]
+				then
+					echo "not removing modified $targetfile"
+				else
+					[ "$verbose" != "yes" ] || echo "removing $targetfile"
+
+					rm -f $targetfile
+				fi
+			fi
+		done < /var/lib/webobjects/extrafiles.md5sums
+
+		rm -f /var/lib/webobjects/extrafiles.md5sums
+
+		[ "$verbose" != "yes" ] || echo "end of action $ACTION"
+
+		;;
+
+	--status)
+		[ "$verbose" != "yes" ] || echo "selected action = $ACTION"
+
+		get_installed_version
+		echo "WebObjects version installed on this system  : $installed"
+
+		#LANG=C update-alternatives --display flash-mozilla.so || true
+
+		[ "$verbose" != "yes" ] || echo "end of action $ACTION"
+
+		;;
+
+	*)
+
+		do_cleanup
+		show_usage
+
+		;;
+
+esac
+
+do_cleanup
+
+[ "$verbose" != "yes" ] || echo "end of update-webobjects"
+

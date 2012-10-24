@@ -1,0 +1,22 @@
+Source: webobjects
+Section: unknown
+Priority: extra
+Maintainer: Bastian Triller <bastian.triller@gmail.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.3
+#Vcs-Git: git://git.debian.org/collab-maint/webobjects.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/webobjects.git;a=summary
+
+Package: webobjects
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: WebObjects runtime libraries
+ This package will download WebObjects from Apple. WebObjects is an integrated
+ suite of Java frameworks for rapidly developing scalable, sophisticated
+ Internet and Enterprise applications. It is the most mature platform available
+ for enterprise-level web, web service and java client (three-tier
+ client-server) application development.
+ .
+ WARNING: Installing this Debian package causes WebObjects
+ to be downloaded from www.apple.com. The End User License Agreement of
+ WebObjects is available at www.apple.com.
