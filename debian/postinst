@@ -1,24 +1,46 @@
 #!/bin/sh
 
 set -e
-. /etc/default/webobjects
+
+. /usr/share/debconf/confmodule
+TEMPLATE="/usr/share/webobjects/defaults.template"
+CONFFILE="/etc/default/webobjects"
+
+[ -x /etc/init.d/wotaskd ] && invoke-rc.d wotaskd stop
+[ -x /etc/init.d/JavaMonitor ] && invoke-rc.d JavaMonitor stop
 
 case "$1" in
     configure)
+	# Generate $CONFFILE from debconf seetings and $TEMPLATE
+	db_version 2.0
+	db_get webobjects/username && WEBOBJECTS_USER="$RET" || WEBOBJECTS_USER="webobjects"
+	db_get webobjects/groupname && WEBOBJECTS_GROUP="$RET" || WEBOBJECTS_GROUP="webobjects"
+	if db_get webobjects/local_wo_dmg && [ "$RET" = "true" ] ; then
+		db_get webobjects/local_wo_dmg_base_url && WEBOBJECTS_URL="$RET"
+	fi
+
+	tmpfile=`mktemp /tmp/webobjects.XXXXXXXXXX`
+	chmod 644 $tmpfile
+	cat $TEMPLATE \
+		| sed "s%^WEBOBJECTS_USER=.*$%WEBOBJECTS_USER=$WEBOBJECTS_USER%" \
+		| sed "s%^WEBOBJECTS_GROUP=.*$%WEBOBJECTS_GROUP=$WEBOBJECTS_GROUP%" \
+		| sed "s%^WEBOBJECTS_URL=.*$%WEBOBJECTS_URL=$WEBOBJECTS_URL%" \
+		>> $tmpfile
+	ucf --debconf-ok --sum-file /usr/share/webobjects/defaults.md5sum $tmpfile $CONFFILE
+	rm -f $tmpfile
+
+	if ! getent group "$WEBOBJECTS_GROUP" >/dev/null 2>&1 ; then
+		addgroup --system "$WEBOBJECTS_GROUP" --quiet
+	fi
+	if ! id "$WEBOBJECTS_USER" >/dev/null 2>&1 ; then
+		adduser --system --home "$NEXT_ROOT/Local/Library/WebObjects/Configuration" \
+			--no-create-home --ingroup "$WEBOBJECTS_GROUP" \
+			--disabled-password --shell /bin/false \
+			"$WEBOBJECTS_USER"
+	fi
 	if update-webobjects --install --fast ; then
-		if ! getent group "$WEBOBJECTS_GROUP" >/dev/null 2>&1 ; then
-			addgroup --system "$WEBOBJECTS_GROUP" --quiet
-		fi
-		if ! id "$WEBOBJECTS_USER" ; then
-			adduser --system --home "$NEXT_ROOT/Local/Library/WebObjects/Configuration" \
-				--no-create-home --ingroup "$WEBOBJECTS_GROUP" \
-				--disabled-password --shell /bin/false \
-				"$WEBOBJECTS_USER"
-		fi
 		update-rc.d wotaskd defaults 92 08 >/dev/null
-		invoke-rc.d wotaskd start
-	else
-		true
+		invoke-rc.d wotaskd start || true
 	fi
     ;;
 

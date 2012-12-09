@@ -1,5 +1,7 @@
-usr/share/doc/webobjects/pdf
+usr/share/doc/webobjects/examples
 usr/share/doc/webobjects/html
-usr/share/webobjects
+usr/share/doc/webobjects/pdf
+usr/share/webobjects/bin
 var/cache/webobjects
-var/lib/webobjects
+var/lib/webobjects/htdocs
+var/lib/webobjects/Library/WebObjects

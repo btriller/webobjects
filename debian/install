@@ -2,3 +2,4 @@ update-webobjects usr/sbin/
 webobjects543.sha512.txt usr/lib/webobjects/
 wotaskd etc/init.d/
 xarextract.py usr/lib/webobjects/
+debian/webobjects.default usr/share/webobjects/defaults.template
