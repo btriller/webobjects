@@ -3,7 +3,7 @@
 set -e
 
 . /usr/share/debconf/confmodule
-TEMPLATE="/usr/share/webobjects/defaults.template"
+TEMPLATE="/usr/share/webobjects/webobjects.default"
 CONFFILE="/etc/default/webobjects"
 
 [ -x /etc/init.d/wotaskd ] && invoke-rc.d wotaskd stop
