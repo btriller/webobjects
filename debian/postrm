@@ -6,7 +6,18 @@ set -e
 
 if [ "$1" = "purge" ]
 then
+	. /usr/share/debconf/confmodule
+	db_get webobjects/username && WEBOBJECTS_USER="$RET" || WEBOBJECTS_USER="webobjects"
+	db_get webobjects/groupname && WEBOBJECTS_GROUP="$RET" || WEBOBJECTS_GROUP="webobjects"
+	db_purge
+	deluser "$WEBOBJECTS_USER"
+	delgroup "$WEBOBJECTS_GROUP" || true
+	update-rc.d wotaskd remove
+	update-rc.d javamonitor remove
 	rm -rf /var/cache/webobjects/*
+	rm -f /etc/default/webobjects
+	ucf --purge /etc/default/webobjects
+	rm -rf /var/lib/webobjects/Library/WebObjects/Configuration
 fi
 
 

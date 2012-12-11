@@ -3,16 +3,39 @@
 set -e
 
 . /usr/share/debconf/confmodule
-TEMPLATE="/usr/share/webobjects/webobjects.default"
+TEMPLATE="/usr/share/webobjects/defaults.template"
 CONFFILE="/etc/default/webobjects"
+WOTASKD_CONF_DIR="/var/lib/webobjects/Library/WebObjects/Configuration"
 
 [ -x /etc/init.d/wotaskd ] && invoke-rc.d wotaskd stop
-[ -x /etc/init.d/JavaMonitor ] && invoke-rc.d JavaMonitor stop
+[ -x /etc/init.d/javamonitor ] && invoke-rc.d javamonitor stop
 
 case "$1" in
     configure)
 	# Generate $CONFFILE from debconf seetings and $TEMPLATE
-	db_version 2.0
+	db_fget webobjects/local_wo_dmg seen || true
+	if [ "$RET" != "true" ]; then
+		db_input high webobjects/local_wo_dmg || true
+		db_go || true
+		db_get webobjects/local_wo_dmg
+		if [ "$RET" = "true" ]; then
+			valid=
+			while [ ! "$valid" ] ; do
+				db_input high webobjects/local_wo_dmg_base_url || true
+				[ "$RET" = 30 ] && valid=1
+				db_go || true
+				db_get webobjects/local_wo_dmg_base_url || true
+				case "$RET" in
+					ftp://?*|http://?*|https://?*)
+						valid=1
+						;;
+					?*)
+						db_input high webobjects/local_wo_dmg_base_url_not_supported || true
+						;;
+				esac
+			done
+		fi
+	fi
 	db_get webobjects/username && WEBOBJECTS_USER="$RET" || WEBOBJECTS_USER="webobjects"
 	db_get webobjects/groupname && WEBOBJECTS_GROUP="$RET" || WEBOBJECTS_GROUP="webobjects"
 	if db_get webobjects/local_wo_dmg && [ "$RET" = "true" ] ; then
@@ -33,16 +56,22 @@ case "$1" in
 		addgroup --system "$WEBOBJECTS_GROUP" --quiet
 	fi
 	if ! id "$WEBOBJECTS_USER" >/dev/null 2>&1 ; then
-		adduser --system --home "$NEXT_ROOT/Local/Library/WebObjects/Configuration" \
+		adduser --system --home "$WOTASKD_CONF_DIR" \
 			--no-create-home --ingroup "$WEBOBJECTS_GROUP" \
 			--disabled-password --shell /bin/false \
 			"$WEBOBJECTS_USER"
 	fi
 	if update-webobjects --install --fast ; then
+		[ -d "$WOTASKD_CONF_DIR" ] || \
+			install -m0700 -o ${WEBOBJECTS_USER} -g ${WEBOBJECTS_GROUP} -d "$WOTASKD_CONF_DIR"
+		update-webobjects --status
 		update-rc.d wotaskd defaults 92 08 >/dev/null
 		invoke-rc.d wotaskd start || true
-		update-rc.d JavaMonitor defaults 93 07 >/dev/null
-		invoke-rc.d JavaMonitor start || true
+		update-rc.d javamonitor defaults 93 07 >/dev/null
+		invoke-rc.d javamonitor start || true
+	else
+		db_fset webobjects/local_wo_dmg seen false
+		exit 1
 	fi
     ;;
 

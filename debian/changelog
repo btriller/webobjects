@@ -1,5 +1,5 @@
-webobjects (5.4.3) unstable; urgency=low
+webobjects (1.0) UNRELEASED; urgency=low
 
-  * Initial Release.
+  * Initial release.
 
- -- Bastian Triller <bastian.triller@gmail.com>  Fri, 28 Sep 2012 11:18:23 +0200
+ -- Bastian Triller <bastian.triller@gmail.com>  Tue, 11 Dec 2012 20:30:53 +0100

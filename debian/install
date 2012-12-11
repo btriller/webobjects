@@ -1,5 +1,6 @@
 update-webobjects usr/sbin/
 webobjects543.sha512.txt usr/lib/webobjects/
 wotaskd etc/init.d/
+javamonitor etc/init.d/
 xarextract.py usr/lib/webobjects/
 debian/defaults.template usr/share/webobjects/

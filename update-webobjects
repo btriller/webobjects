@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Copyright (C) 2006-2012 Bart Martens <bartm@knars.be>
+# Modified for WebObjects by Bastian Triller <bastian.triller@gmail.com>.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +26,7 @@ trap "return_0" 0
 die_hard() {
 	echo "ERROR: $1" >&2
 	echo "More information might be available at:" >&2
-	echo "  http://wiki.debian.org/FlashPlayer" >&2
+	echo "  http://wiki.wocommunity.org" >&2
 	exit 1
 }
 
@@ -133,34 +134,12 @@ fix_missing_symlink() {
 	update-alternatives --auto $1 > /dev/null 2>&1 || true
 }
 
-warning_about_alternatives() {
-
-	letswarn="no"
-	LANG=C update-alternatives --display flash-mozilla.so \
-	| grep "link currently points to /usr/lib/flashplugin-nonfree/libflashplayer.so" \
-	> /dev/null 2>&1 || \
-	cat <<-EOF
-
-		How to use predefined priorities to
-		automatically select one implementation of "flash"
-		between the multiple installed alternatives :
-
-		 	update-alternatives --auto flash-mozilla.so
-
-		How to manually select one implementation of "flash"
-		between the multiple installed alternatives :
-
-		 	update-alternatives --config flash-mozilla.so
-
-	EOF
-}
-
 cachedir=/var/cache/webobjects
 
 wgetquiet=' -q '
 wgetfast='-t 3 -T 15 '
 wgetalways=' -nd -P . '
-wgetprogress=' -v --progress=dot:default '
+wgetprogress=' -v '
 
 get_installed_version() {
 	version_plist="/usr/share/webobjects/Library/Frameworks/JavaWebObjects.framework/Resources/Info.plist"
@@ -237,43 +216,44 @@ case "$ACTION" in
 			mv -f $RUNTIME .
 			RUNTIME="$PWD/`basename $RUNTIME`"
 
+			copied_files=`mktemp /tmp/files.XXXXXXXXXX`
 			targetdir=/var/lib/webobjects
 
 			[ "$verbose" != "yes" ] || echo "moving webserver resources to $targetdir ..."
 			tar --owner=$WEBOBJECTS_USER --group=$WEBOBJECTS_GROUP -C $RUNTIME/System/Library/WebObjects/WODocumentRoot -c WebObjects \
-				| tar -C $targetdir/htdocs -x
+				| tar -C $targetdir/htdocs -xv | sed "s,^,${targetdir#/}/htdocs/," >> $copied_files
 			rm -rf $RUNTIME/System/Library/WebObjects/WODocumentRoot
 			tar --owner=$WEBOBJECTS_USER --group=$WEBOBJECTS_GROUP -C $RUNTIME/Library/WebServer/Documents -c WebObjects \
-				| tar -C $targetdir/htdocs -x
+				| tar -C $targetdir/htdocs -xv | sed "s,^,${targetdir#/}/htdocs/," >> $copied_files
 			[ "$verbose" != "yes" ] || echo "moving local libraries to $targetdir ..."
 			tar --owner=$WEBOBJECTS_USER --group=$WEBOBJECTS_GROUP -C $RUNTIME/ -c Library/Frameworks Library/WebObjects/Applications \
-				| tar -C $targetdir -x
-			[ -d $targetdir/Library/WebObjects/Configuration ] || \
-				install -m0700 -o ${WEBOBJECTS_USER} -g ${WEBOBJECTS_GROUP} -d $targetdir/Library/WebObjects/Configuration
+				| tar -C $targetdir -xv | sed "s,^,${targetdir#/}/," >> $copied_files
 
 			targetdir=/usr/share/webobjects
 
 			[ "$verbose" != "yes" ] || echo "removing OSX adaptors ..."
 			rm -rf $RUNTIME/System/Library/WebObjects/Adaptors
 			[ "$verbose" != "yes" ] || echo "moving system libraries to $targetdir ..."
-			tar --owner=root --group=root -C $RUNTIME/System -c Library | tar -C $targetdir -x
+			tar --owner=root --group=root -hC $RUNTIME/System -c Library \
+				| tar -C $targetdir -xv | sed "s,^,${targetdir#/}/," >> $copied_files
 
 			targetdir=/usr/share/doc/webobjects
 
 			[ "$verbose" != "yes" ] || echo "moving examples to $targetdir ..."
-			tar --owner=root --group=root -C $RUNTIME/Developer/Examples -c . | tar -C $targetdir/examples -x
+			tar --owner=root --group=root -C $RUNTIME/Developer/Examples -c WebObjects JavaWebObjects \
+				| tar -C $targetdir/examples -xv | sed "s,^,${targetdir#/}/examples/," >> $copied_files
 
 			[ "$verbose" != "yes" ] || ( get_installed_version && echo "WebObjects version: $installed" )
 
 
 			fix_missing_symlink wotaskd || true
-			fix_missing_symlink JavaMonitor || true
+			fix_missing_symlink javamonitor || true
 
 			[ "$verbose" != "yes" ] || \
 			update-alternatives --display wotaskd || true
 
 			[ "$verbose" != "yes" ] || \
-			update-alternatives --display JavaMonitor || true
+			update-alternatives --display javamonitor || true
 
 			[ "$verbose" != "yes" ] || echo "calling update-alternatives for wotaskd ..."
 			update-alternatives --quiet --install \
@@ -283,49 +263,18 @@ case "$ACTION" in
 
 			[ "$verbose" != "yes" ] || echo "calling update-alternatives for JavaMonitor ..."
 			update-alternatives --quiet --install \
-				/usr/share/webobjects/bin/JavaMonitor JavaMonitor \
+				/usr/share/webobjects/bin/javamonitor javamonitor \
 				/usr/share/webobjects/Library/WebObjects/JavaApplications/JavaMonitor.woa/JavaMonitor 5 \
-				|| die_hard_with_a_cleanup "update-alternatives failed to install JavaMonitor"
+				|| die_hard_with_a_cleanup "update-alternatives failed to install javamonitor"
 
 			[ "$verbose" != "yes" ] || \
 			update-alternatives --display wotaskd || true
 
 			[ "$verbose" != "yes" ] || \
-			update-alternatives --display JavaMonitor || true
+			update-alternatives --display javamonitor || true
 
-			#[ "$quiet" != "no" ] || \
-			#warning_about_alternatives
-
-			#for sourcefile in \
-			#	usr/bin/flash-player-properties \
-			#	usr/share/applications/flash-player-properties.desktop \
-			#	usr/share/icons/hicolor/16x16/apps/flash-player-properties.png \
-			#	usr/share/icons/hicolor/22x22/apps/flash-player-properties.png \
-			#	usr/share/icons/hicolor/24x24/apps/flash-player-properties.png \
-			#	usr/share/icons/hicolor/32x32/apps/flash-player-properties.png \
-			#	usr/share/icons/hicolor/48x48/apps/flash-player-properties.png \
-			#	usr/share/pixmaps/flash-player-properties.png \
-			#	;
-			#do
-			#	if [ ! -e $sourcefile ]
-			#	then
-			#		echo "not found in tarball: $sourcefile"
-			#	else
-			#		targetfile="/$sourcefile"
-
-			#		if [ -e $targetfile ]
-			#		then
-			#			echo "already exists: $targetfile"
-			#		else
-			#			[ "$verbose" != "yes" ] || echo "installing $targetfile"
-
-			#			md5sum $sourcefile >> /var/lib/flashplugin-nonfree/extrafiles.md5sums
-			#			cp $sourcefile $targetfile
-			#			chown root:root $targetfile
-			#			chmod g-w $targetfile
-			#		fi
-			#	fi
-			#done
+			( cd / ; grep -v "/$" $copied_files | sort -u | xargs md5sum > /var/lib/webobjects/extrafiles.md5sums )
+			grep "/$" $copied_files | sort -u > /var/lib/webobjects/extradirs.list
 		fi # end if installed != upstream
 
 		[ "$verbose" != "yes" ] || echo "end of action $ACTION"
@@ -336,39 +285,37 @@ case "$ACTION" in
 		[ "$verbose" != "yes" ] || echo "selected action = $ACTION"
 
 		update-alternatives --remove wotaskd /usr/share/webobjects/Library/WebObjects/JavaApplications/wotaskd.woa/wotaskd
-		update-alternatives --remove JavaMonitor /usr/share/webobjects/Library/WebObjects/JavaApplications/JavaMonitor.woa/JavaMonitor
+		update-alternatives --remove javamonitor /usr/share/webobjects/Library/WebObjects/JavaApplications/JavaMonitor.woa/JavaMonitor
 
 		[ "$verbose" != "yes" ] || echo "removing files ..."
-		rm -rf /usr/share/webobjects/Library
-		rm -rf /usr/share/doc/webobjects/examples/*
 
 		[ -e /var/lib/webobjects/extrafiles.md5sums ] || touch /var/lib/webobjects/extrafiles.md5sums
 
-		while read line
-		do
-			sourcefile=`echo $line|cut -d ' ' -f 2`
-			targetfile="/$sourcefile"
+		(
+			IFS=": "
+			cd /
+			md5sum -c < /var/lib/webobjects/extrafiles.md5sums \
+				| while read file status ; do
+					targetfile="/$file"
 
-			if [ ! -e $targetfile ]
-			then
-				echo "not found: $targetfile"
-			else
-				cd /
-				calculated=`md5sum $sourcefile`
-				cd - > /dev/null
+					if [ ! -e $targetfile ] ; then
+						echo "not found: $targetfile"
+					elif [ "$status" = "OK" ] ; then
+						[ "$verbose" != "yes" ] || echo "removing $targetfile"
 
-				if [ "$line" != "$calculated" ]
-				then
-					echo "not removing modified $targetfile"
-				else
-					[ "$verbose" != "yes" ] || echo "removing $targetfile"
-
-					rm -f $targetfile
-				fi
-			fi
-		done < /var/lib/webobjects/extrafiles.md5sums
+						rm -f $targetfile
+					else
+						echo "not removing modified $targetfile"
+					fi
+				done
+		)
 
 		rm -f /var/lib/webobjects/extrafiles.md5sums
+
+
+		( cd / ; tac /var/lib/webobjects/extradirs.list | xargs -r rmdir --ignore-fail-on-non-empty )
+
+		rm -f /var/lib/webobjects/extradirs.list
 
 		[ "$verbose" != "yes" ] || echo "end of action $ACTION"
 

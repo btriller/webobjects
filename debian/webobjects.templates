@@ -17,9 +17,9 @@ Description: Dedicated system group for the wotaskd:
 Template: webobjects/local_wo_dmg
 Type: boolean
 Default: false
-Description: Fetch the WO.dmg from a local server?
+Description: Fetch the WebObjects543.dmg from a local server?
  If you enable this option, you can specify an alternate URL from which
- the WO.dmg gets fetched.
+ the WebObjects543.dmg gets fetched.
 
 Template: webobjects/local_wo_dmg_base_url
 Type: string
@@ -27,3 +27,8 @@ Default:
 Description: Base URL to fetch WebObjects543.dmg from
  Please specify an alternate base url from which the WebObjects543.dmg
  can be fetched.
+
+Template: webobjects/local_wo_dmg_base_url_not_supported
+Type: note
+Description: Base URL scheme not suppoerted
+ Please specify a supported url scheme (ftp, http, https).
