@@ -41,6 +41,8 @@ case "$1" in
 	if update-webobjects --install --fast ; then
 		update-rc.d wotaskd defaults 92 08 >/dev/null
 		invoke-rc.d wotaskd start || true
+		update-rc.d JavaMonitor defaults 93 07 >/dev/null
+		invoke-rc.d JavaMonitor start || true
 	fi
     ;;
 

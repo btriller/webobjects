@@ -1,5 +1,4 @@
 #! /usr/bin/python -u
-from xml.dom import minidom
 from collections import namedtuple
 import xml.etree.cElementTree as ET
 import io,zlib,sys,struct,os
