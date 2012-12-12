@@ -212,7 +212,7 @@ case "$ACTION" in
 			[ -f $cachedir/$downloadfile ] || cp -p $downloadfile $cachedir
 
 			[ "$verbose" != "yes" ] || echo "extracting runtime ..."
-			RUNTIME=`/usr/lib/webobjects/xarextract.py -x Packages/WebObjectsRuntime.pkg`
+			RUNTIME=`/usr/lib/webobjects/xarextract.py -x Packages/WebObjectsRuntime.pkg || die_hard_with_a_cleanup "couldn't extract runtime"`
 			mv -f $RUNTIME .
 			RUNTIME="$PWD/`basename $RUNTIME`"
 
