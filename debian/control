@@ -10,6 +10,7 @@ Standards-Version: 3.9.3
 Package: webobjects
 Architecture: all
 Depends: ${misc:Depends}, default-jre, ucf, adduser, debconf, python, wget, module-init-tools
+Provides: wotaskd, javamonitor
 Description: WebObjects runtime libraries
  This package will download WebObjects from Apple. WebObjects is an integrated
  suite of Java frameworks for rapidly developing scalable, sophisticated
