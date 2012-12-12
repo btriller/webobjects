@@ -1,5 +1,5 @@
 Source: webobjects
-Section: unknown
+Section: java
 Priority: extra
 Maintainer: Bastian Triller <bastian.triller@gmail.com>
 Build-Depends: debhelper (>= 8.0.0)
