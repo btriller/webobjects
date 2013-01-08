@@ -46,10 +46,9 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-	start-stop-daemon -b -m --start -u "$WEBOBJECTS_USER" --quiet -p $PIDFILE \
-		-x $DAEMON --test > /dev/null || return 1
-	start-stop-daemon -b -m --start \
-		-c "$WEBOBJECTS_USER" --quiet -p $PIDFILE -x $DAEMON -- $DAEMON_ARGS \
+	start-stop-daemon -b -m -u "$WEBOBJECTS_USER" -q -p $PIDFILE \
+		-x $DAEMON -t -S -- $DAEMON_ARGS > /dev/null || return 1
+	start-stop-daemon -b -m -c "$WEBOBJECTS_USER" -q -p $PIDFILE -x $DAEMON -S -- $DAEMON_ARGS \
 		|| return 2
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
@@ -66,7 +65,7 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --retry=TERM/30/KILL/5 -p $PIDFILE -u "$WEBOBJECTS_USER"
+	start-stop-daemon --retry=TERM/30/KILL/5 -p $PIDFILE -u "$WEBOBJECTS_USER" -o -q -K
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
 	# Wait for children to finish too if this is a daemon that forks
