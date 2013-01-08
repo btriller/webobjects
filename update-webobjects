@@ -292,15 +292,15 @@ case "$ACTION" in
 		[ -e /var/lib/webobjects/extrafiles.md5sums ] || touch /var/lib/webobjects/extrafiles.md5sums
 
 		(
-			IFS=": "
+			IFS=":"
 			cd /
-			md5sum -c < /var/lib/webobjects/extrafiles.md5sums \
+			LANG=C md5sum -c < /var/lib/webobjects/extrafiles.md5sums \
 				| while read file status ; do
 					targetfile="/$file"
 
 					if [ ! -e $targetfile ] ; then
 						echo "not found: $targetfile"
-					elif [ "$status" = "OK" ] ; then
+					elif [ "$status" = " OK" ] ; then
 						[ "$verbose" != "yes" ] || echo "removing $targetfile"
 
 						rm -f $targetfile
