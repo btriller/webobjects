@@ -1,3 +1,9 @@
+webobjects (1.1) stable; urgency=low
+
+  * don't remove on upgrade/deconfigure
+
+ -- Bastian Triller <bastian.triller@gmail.com>  Thu, 10 Jan 2013 21:57:05 +0100
+
 webobjects (1.0) stable; urgency=low
 
   * Initial release.
