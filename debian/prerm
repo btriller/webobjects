@@ -6,7 +6,7 @@ set -e
 [ -x /etc/init.d/javamonitor ] && invoke-rc.d javamonitor stop
 
 case "$1" in
-    remove|upgrade|deconfigure)
+    remove)
 	update-webobjects --uninstall || true
     ;;
 
