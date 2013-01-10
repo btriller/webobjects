@@ -225,6 +225,7 @@ case "$ACTION" in
 			rm -rf $RUNTIME/System/Library/WebObjects/WODocumentRoot
 			tar --owner=$WEBOBJECTS_USER --group=$WEBOBJECTS_GROUP -C $RUNTIME/Library/WebServer/Documents -c WebObjects \
 				| tar -C $targetdir/htdocs -xv | sed "s,^,${targetdir#/}/htdocs/," >> $copied_files
+			mv $targetdir/htdocs/WebObjects/JavaMonitor.woa $targetdir/htdocs/WebObjects/JavaMonitor.woa.apple
 			[ "$verbose" != "yes" ] || echo "moving local libraries to $targetdir ..."
 			tar --owner=$WEBOBJECTS_USER --group=$WEBOBJECTS_GROUP -C $RUNTIME/ -c Library/Frameworks Library/WebObjects/Applications \
 				| tar -C $targetdir -xv | sed "s,^,${targetdir#/}/," >> $copied_files
@@ -265,6 +266,8 @@ case "$ACTION" in
 			update-alternatives --quiet --install \
 				/usr/share/webobjects/bin/javamonitor javamonitor \
 				/usr/share/webobjects/Library/WebObjects/JavaApplications/JavaMonitor.woa/JavaMonitor 5 \
+				--slave /var/lib/webobjects/htdocs/WebObjects/JavaMonitor.woa JavaMonitor.woa \
+					/var/lib/webobjects/htdocs/WebObjects/JavaMonitor.woa.apple \
 				|| die_hard_with_a_cleanup "update-alternatives failed to install javamonitor"
 
 			[ "$verbose" != "yes" ] || \
