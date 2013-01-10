@@ -1,5 +1,14 @@
-webobjects (1.0) UNRELEASED; urgency=low
+webobjects (1.0) stable; urgency=low
 
   * Initial release.
+  * provides javamonitor, wotaskd
+  * section java
+  * depends cpio
+  * update-webobjects
+    - split and parse md5sum output properly
+  * xarextract.py
+    - remove comments
+    - squeeze (python2.6) compatibility
+  * init script fixes
 
- -- Bastian Triller <bastian.triller@gmail.com>  Tue, 11 Dec 2012 20:30:53 +0100
+ -- Bastian Triller <bastian.triller@gmail.com>  Wed, 12 Dec 2012 21:28:14 +0100
