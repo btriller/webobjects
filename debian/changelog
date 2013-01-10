@@ -1,3 +1,10 @@
+webobjects (1.2) stable; urgency=low
+
+  * alternative for JavaMonitor WebServerResources
+  * catch upgrade/deconfigure in prerm
+
+ -- Bastian Triller <bastian.triller@gmail.com>  Fri, 11 Jan 2013 00:13:56 +0100
+
 webobjects (1.1) stable; urgency=low
 
   * don't remove on upgrade/deconfigure
