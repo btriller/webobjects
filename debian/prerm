@@ -10,7 +10,7 @@ case "$1" in
 	update-webobjects --uninstall || true
     ;;
 
-    failed-upgrade)
+    failed-upgrade|upgrade|deconfigure)
     ;;
 
     *)
